@@ -1,0 +1,9 @@
+=== REQUEST ===
+GET http://127.0.0.1:49159/search?q=admin%27%2F%2A HTTP/1.1
+
+=== RESPONSE ===
+HTTP/1.1 200 OK
+Date: Thu, 03 Apr 2025 20:54:16 GMT
+Content-Length: 25
+Content-Type: text/plain; charset=utf-8
+

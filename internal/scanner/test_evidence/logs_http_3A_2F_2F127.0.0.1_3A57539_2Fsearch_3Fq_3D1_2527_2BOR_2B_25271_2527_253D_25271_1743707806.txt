@@ -1,0 +1,9 @@
+=== REQUEST ===
+GET http://127.0.0.1:57539/search?q=1%27+OR+%271%27%3D%271 HTTP/1.1
+
+=== RESPONSE ===
+HTTP/1.1 200 OK
+Content-Type: text/plain; charset=utf-8
+Date: Thu, 03 Apr 2025 19:16:46 GMT
+Content-Length: 25
+

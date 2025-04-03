@@ -1,0 +1,9 @@
+=== REQUEST ===
+GET http://127.0.0.1:61742/search?q=1%3B+DROP+TABLE+users-- HTTP/1.1
+
+=== RESPONSE ===
+HTTP/1.1 200 OK
+Date: Thu, 03 Apr 2025 19:54:32 GMT
+Content-Length: 25
+Content-Type: text/plain; charset=utf-8
+

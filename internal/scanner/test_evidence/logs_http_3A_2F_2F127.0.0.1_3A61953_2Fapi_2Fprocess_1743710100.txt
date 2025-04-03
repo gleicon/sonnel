@@ -1,0 +1,10 @@
+=== REQUEST ===
+POST http://127.0.0.1:61953/api/process HTTP/1.1
+Content-Type: application/xml
+
+=== RESPONSE ===
+HTTP/1.1 200 OK
+Date: Thu, 03 Apr 2025 19:55:00 GMT
+Content-Length: 31
+Content-Type: text/plain; charset=utf-8
+
