@@ -1,23 +1,23 @@
 package scanner
 
 import (
-	"crypto/tls"
 	"fmt"
-	"net/http"
 	"net/url"
 	"time"
 
+	"github.com/gleicon/browserhttp"
 	"github.com/gleicon/sonnel/internal/evidence"
 	"github.com/gleicon/sonnel/internal/models"
 )
 
 // Scanner performs security scans on web applications
 type Scanner struct {
-	client       *http.Client
-	evidenceDir  string
-	evidenceColl *evidence.EvidenceCollector
-	targetURL    string
-	verbose      bool
+	client        *browserhttp.BrowserClient
+	evidenceDir   string
+	evidenceColl  *evidence.EvidenceCollector
+	targetURL     string
+	verbose       bool
+	screenshotDir string
 }
 
 // ScanResult represents the results of a security scan
@@ -37,18 +37,14 @@ func NewScanner(targetURL string, evidenceDir string) (*Scanner, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create evidence collector: %v", err)
 	}
+	client := browserhttp.NewClient(15 * time.Second) //TODO: make timeout configurable
 
 	return &Scanner{
-		targetURL:    targetURL,
-		evidenceDir:  evidenceDir,
-		evidenceColl: evidenceColl,
-		client: &http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{
-					InsecureSkipVerify: true,
-				},
-			},
-		},
+		targetURL:     targetURL,
+		evidenceDir:   evidenceDir,
+		evidenceColl:  evidenceColl,
+		screenshotDir: evidenceDir, // store evidence and screenshots in the same place
+		client:        client,
 	}, nil
 }
 
@@ -59,6 +55,16 @@ func (s *Scanner) SetVerbose(verbose bool) {
 
 // Scan performs a security scan on the target URL
 func (s *Scanner) Scan(targetURL string) ([]models.Vulnerability, error) {
+	// setup browserclient and chrome persistent tab usage to save memory and improve latency
+	s.client.UsePersistentTabs(true)
+	s.client.EnableScreenshots(s.screenshotDir)
+	s.client.Init()
+
+	if s.verbose {
+		s.client.EnableVerbose()
+	}
+	defer s.client.Close()
+
 	// Validate URL
 	parsedURL, err := url.Parse(targetURL)
 	if err != nil {
@@ -289,68 +295,69 @@ func (s *Scanner) RunScan(target string) ScanResult {
 		result.Vulnerabilities = append(result.Vulnerabilities, vulns...)
 	}
 
+	oat := newOAT(s)
 	// Run OAT checks
-	if vulns := CheckCarding(target); len(vulns) > 0 {
+	if vulns := oat.CheckCarding(target); len(vulns) > 0 {
 		result.Vulnerabilities = append(result.Vulnerabilities, vulns...)
 	}
-	if vulns := CheckTokenCracking(target); len(vulns) > 0 {
+	if vulns := oat.CheckTokenCracking(target); len(vulns) > 0 {
 		result.Vulnerabilities = append(result.Vulnerabilities, vulns...)
 	}
-	if vulns := CheckAdFraud(target); len(vulns) > 0 {
+	if vulns := oat.CheckAdFraud(target); len(vulns) > 0 {
 		result.Vulnerabilities = append(result.Vulnerabilities, vulns...)
 	}
-	if vulns := CheckFingerprinting(target); len(vulns) > 0 {
+	if vulns := oat.CheckFingerprinting(target); len(vulns) > 0 {
 		result.Vulnerabilities = append(result.Vulnerabilities, vulns...)
 	}
-	if vulns := CheckScalping(target); len(vulns) > 0 {
+	if vulns := oat.CheckScalping(target); len(vulns) > 0 {
 		result.Vulnerabilities = append(result.Vulnerabilities, vulns...)
 	}
-	if vulns := CheckExpediting(target); len(vulns) > 0 {
+	if vulns := oat.CheckExpediting(target); len(vulns) > 0 {
 		result.Vulnerabilities = append(result.Vulnerabilities, vulns...)
 	}
-	if vulns := CheckCredentialCracking(target); len(vulns) > 0 {
+	if vulns := oat.CheckCredentialCracking(target); len(vulns) > 0 {
 		result.Vulnerabilities = append(result.Vulnerabilities, vulns...)
 	}
-	if vulns := CheckCredentialStuffing(target); len(vulns) > 0 {
+	if vulns := oat.CheckCredentialStuffing(target); len(vulns) > 0 {
 		result.Vulnerabilities = append(result.Vulnerabilities, vulns...)
 	}
-	if vulns := CheckCAPTCHADefeat(target); len(vulns) > 0 {
+	if vulns := oat.CheckCAPTCHADefeat(target); len(vulns) > 0 {
 		result.Vulnerabilities = append(result.Vulnerabilities, vulns...)
 	}
-	if vulns := CheckCardCracking(target); len(vulns) > 0 {
+	if vulns := oat.CheckCardCracking(target); len(vulns) > 0 {
 		result.Vulnerabilities = append(result.Vulnerabilities, vulns...)
 	}
-	if vulns := CheckScraping(target); len(vulns) > 0 {
+	if vulns := oat.CheckScraping(target); len(vulns) > 0 {
 		result.Vulnerabilities = append(result.Vulnerabilities, vulns...)
 	}
-	if vulns := CheckCashingOut(target); len(vulns) > 0 {
+	if vulns := oat.CheckCashingOut(target); len(vulns) > 0 {
 		result.Vulnerabilities = append(result.Vulnerabilities, vulns...)
 	}
-	if vulns := CheckSniping(target); len(vulns) > 0 {
+	if vulns := oat.CheckSniping(target); len(vulns) > 0 {
 		result.Vulnerabilities = append(result.Vulnerabilities, vulns...)
 	}
-	if vulns := CheckVulnerabilityScanning(target); len(vulns) > 0 {
+	if vulns := oat.CheckVulnerabilityScanning(target); len(vulns) > 0 {
 		result.Vulnerabilities = append(result.Vulnerabilities, vulns...)
 	}
-	if vulns := CheckDenialOfService(target); len(vulns) > 0 {
+	if vulns := oat.CheckDenialOfService(target); len(vulns) > 0 {
 		result.Vulnerabilities = append(result.Vulnerabilities, vulns...)
 	}
-	if vulns := CheckSkewing(target); len(vulns) > 0 {
+	if vulns := oat.CheckSkewing(target); len(vulns) > 0 {
 		result.Vulnerabilities = append(result.Vulnerabilities, vulns...)
 	}
-	if vulns := CheckSpamming(target); len(vulns) > 0 {
+	if vulns := oat.CheckSpamming(target); len(vulns) > 0 {
 		result.Vulnerabilities = append(result.Vulnerabilities, vulns...)
 	}
-	if vulns := CheckFootprinting(target); len(vulns) > 0 {
+	if vulns := oat.CheckFootprinting(target); len(vulns) > 0 {
 		result.Vulnerabilities = append(result.Vulnerabilities, vulns...)
 	}
-	if vulns := CheckAccountCreation(target); len(vulns) > 0 {
+	if vulns := oat.CheckAccountCreation(target); len(vulns) > 0 {
 		result.Vulnerabilities = append(result.Vulnerabilities, vulns...)
 	}
-	if vulns := CheckAccountAggregation(target); len(vulns) > 0 {
+	if vulns := oat.CheckAccountAggregation(target); len(vulns) > 0 {
 		result.Vulnerabilities = append(result.Vulnerabilities, vulns...)
 	}
-	if vulns := CheckDenialOfInventory(target); len(vulns) > 0 {
+	if vulns := oat.CheckDenialOfInventory(target); len(vulns) > 0 {
 		result.Vulnerabilities = append(result.Vulnerabilities, vulns...)
 	}
 

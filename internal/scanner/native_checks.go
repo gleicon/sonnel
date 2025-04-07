@@ -6,35 +6,23 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 
-	"github.com/gleicon/sonnel/internal/evidence"
+	"github.com/gleicon/browserhttp"
 	"github.com/gleicon/sonnel/internal/models"
 )
 
 // NativeScanner provides security checks using only Go standard libraries
 type NativeScanner struct {
-	client *http.Client
+	scanner *Scanner
+	client  *browserhttp.BrowserClient
 }
 
 // NewNativeScanner creates a new NativeScanner instance
-func NewNativeScanner() *NativeScanner {
-	transport := &http.Transport{
-		DialContext: (&net.Dialer{
-			Timeout:   30 * time.Second,
-			KeepAlive: 30 * time.Second,
-		}).DialContext,
-		MaxIdleConns:          100,
-		IdleConnTimeout:       90 * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
-	}
+func NewNativeScanner(scanner *Scanner) *NativeScanner {
 
 	return &NativeScanner{
-		client: &http.Client{
-			Transport: transport,
-			Timeout:   30 * time.Second,
-		},
+		scanner: scanner,
+		client:  scanner.client,
 	}
 }
 
@@ -49,10 +37,7 @@ func (ns *NativeScanner) CheckNativeFuzzing(target string) ([]models.Vulnerabili
 	}
 
 	var vulnerabilities []models.Vulnerability
-	evidenceColl, err := evidence.NewEvidenceCollector("evidence")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create evidence collector: %v", err)
-	}
+	evidenceColl := ns.scanner.evidenceColl
 
 	for _, path := range paths {
 		u, err := url.Parse(target)
@@ -115,10 +100,7 @@ func (ns *NativeScanner) CheckNativeSubdomain(target string) ([]models.Vulnerabi
 	}
 
 	var vulnerabilities []models.Vulnerability
-	evidenceColl, err := evidence.NewEvidenceCollector("evidence")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create evidence collector: %v", err)
-	}
+	evidenceColl := ns.scanner.evidenceColl
 
 	for _, prefix := range prefixes {
 		subdomain := fmt.Sprintf("%s.%s", prefix, domain)
@@ -157,10 +139,7 @@ func (ns *NativeScanner) CheckNativeSubdomain(target string) ([]models.Vulnerabi
 // CheckNativeHTTP performs basic HTTP probing using Go standard libraries
 func (ns *NativeScanner) CheckNativeHTTP(target string) ([]models.Vulnerability, error) {
 	var vulnerabilities []models.Vulnerability
-	evidenceColl, err := evidence.NewEvidenceCollector("evidence")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create evidence collector: %v", err)
-	}
+	evidenceColl := ns.scanner.evidenceColl
 
 	// Check HTTP/1.1
 	req, err := http.NewRequest("GET", target, nil)

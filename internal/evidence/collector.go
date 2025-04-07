@@ -51,13 +51,13 @@ func (ec *EvidenceCollector) CollectEvidence(targetURL string, req *http.Request
 		evidence.LogPath = logPath
 	}
 
-	// Try to capture screenshot, but don't fail if it doesn't work
-	screenshotPath, err := ec.captureScreenshot(targetURL)
-	if err != nil {
-		fmt.Printf("Warning: Could not capture screenshot: %v\n", err)
-	} else {
-		evidence.ScreenshotPath = screenshotPath
-	}
+	// // Try to capture screenshot, but don't fail if it doesn't work
+	// screenshotPath, err := ec.captureScreenshot(targetURL)
+	// if err != nil {
+	// 	fmt.Printf("Warning: Could not capture screenshot: %v\n", err)
+	// } else {
+	// 	evidence.ScreenshotPath = screenshotPath
+	// }
 
 	return evidence, nil
 }

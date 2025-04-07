@@ -36,10 +36,7 @@ type SQLInjectionDetector struct {
 
 // NewSQLInjectionDetector creates a new SQL injection detector
 func NewSQLInjectionDetector(scanner *Scanner, verbose bool) (*SQLInjectionDetector, error) {
-	evidenceColl, err := evidence.NewEvidenceCollector("evidence")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create evidence collector: %v", err)
-	}
+	evidenceColl := scanner.evidenceColl
 
 	return &SQLInjectionDetector{
 		scanner:      scanner,

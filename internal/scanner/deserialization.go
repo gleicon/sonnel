@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/gleicon/sonnel/internal/evidence"
 	"github.com/gleicon/sonnel/internal/models"
 )
 
@@ -57,10 +56,7 @@ func CheckDeserialization(scanner *Scanner, targetURL string) ([]models.Vulnerab
 		},
 	}
 
-	evidenceColl, err := evidence.NewEvidenceCollector(scanner.evidenceDir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create evidence collector: %v", err)
-	}
+	evidenceColl := scanner.evidenceColl
 
 	for _, endpoint := range endpoints {
 		baseURL := fmt.Sprintf("%s%s", targetURL, endpoint)

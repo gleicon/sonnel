@@ -8,3 +8,6 @@ screenshots
 scan_output/*
 verbose/*
 evidence/*
+.DS_Store
+bin/*
+sonnel 

@@ -6,9 +6,19 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gleicon/sonnel/internal/evidence"
+	"github.com/gleicon/browserhttp"
 	"github.com/gleicon/sonnel/internal/models"
 )
+
+type OAT struct {
+	scanner *Scanner
+	client  *browserhttp.BrowserClient
+}
+
+func newOAT(scanner *Scanner) *OAT {
+	oat := OAT{scanner: scanner}
+	return &oat
+}
 
 // Common route patterns for different types of endpoints
 var (
@@ -67,16 +77,12 @@ var (
 )
 
 // CheckCarding checks for card testing attempts (OAT-001)
-func CheckCarding(target string) []models.Vulnerability {
+func (oat *OAT) CheckCarding(target string) []models.Vulnerability {
 	var vulns []models.Vulnerability
 	fmt.Println("Checking for carding attempts...")
 
-	// Create evidence collector
-	evidenceColl, err := evidence.NewEvidenceCollector("evidence")
-	if err != nil {
-		fmt.Printf("Warning: Could not create evidence collector: %v\n", err)
-		return vulns
-	}
+	// Fetch evidence collector
+	evidenceColl := oat.scanner.evidenceColl
 
 	// Test payment endpoints
 	for _, path := range paymentRoutes {
@@ -140,16 +146,12 @@ func CheckCarding(target string) []models.Vulnerability {
 }
 
 // CheckTokenCracking checks for token brute-forcing (OAT-002)
-func CheckTokenCracking(target string) []models.Vulnerability {
+func (oat *OAT) CheckTokenCracking(target string) []models.Vulnerability {
 	var vulns []models.Vulnerability
 	fmt.Println("Checking for token cracking attempts...")
 
-	// Create evidence collector
-	evidenceColl, err := evidence.NewEvidenceCollector("evidence")
-	if err != nil {
-		fmt.Printf("Warning: Could not create evidence collector: %v\n", err)
-		return vulns
-	}
+	// Fetch evidence collector
+	evidenceColl := oat.scanner.evidenceColl
 
 	// Common token endpoints
 	tokenEndpoints := []string{
@@ -212,16 +214,12 @@ func CheckTokenCracking(target string) []models.Vulnerability {
 }
 
 // CheckCredentialCracking checks for password brute-forcing (OAT-007)
-func CheckCredentialCracking(target string) []models.Vulnerability {
+func (oat *OAT) CheckCredentialCracking(target string) []models.Vulnerability {
 	var vulns []models.Vulnerability
 	fmt.Println("Checking for credential cracking attempts...")
 
-	// Create evidence collector
-	evidenceColl, err := evidence.NewEvidenceCollector("evidence")
-	if err != nil {
-		fmt.Printf("Warning: Could not create evidence collector: %v\n", err)
-		return vulns
-	}
+	// Fetch evidence collector
+	evidenceColl := oat.scanner.evidenceColl
 
 	// Test login endpoints
 	for _, path := range authRoutes {
@@ -286,16 +284,12 @@ func CheckCredentialCracking(target string) []models.Vulnerability {
 }
 
 // CheckScraping checks for content scraping attempts (OAT-011)
-func CheckScraping(target string) []models.Vulnerability {
+func (oat *OAT) CheckScraping(target string) []models.Vulnerability {
 	var vulns []models.Vulnerability
 	fmt.Println("Checking for scraping attempts...")
 
-	// Create evidence collector
-	evidenceColl, err := evidence.NewEvidenceCollector("evidence")
-	if err != nil {
-		fmt.Printf("Warning: Could not create evidence collector: %v\n", err)
-		return vulns
-	}
+	// Fetch evidence collector
+	evidenceColl := oat.scanner.evidenceColl
 
 	// Test content endpoints
 	for _, path := range contentRoutes {
@@ -362,16 +356,12 @@ func CheckScraping(target string) []models.Vulnerability {
 }
 
 // CheckVulnerabilityScanning checks for automated vulnerability scanning (OAT-014)
-func CheckVulnerabilityScanning(target string) []models.Vulnerability {
+func (oat *OAT) CheckVulnerabilityScanning(target string) []models.Vulnerability {
 	var vulns []models.Vulnerability
 	fmt.Println("Checking for vulnerability scanning attempts...")
 
-	// Create evidence collector
-	evidenceColl, err := evidence.NewEvidenceCollector("evidence")
-	if err != nil {
-		fmt.Printf("Warning: Could not create evidence collector: %v\n", err)
-		return vulns
-	}
+	// Fetch evidence collector
+	evidenceColl := oat.scanner.evidenceColl
 
 	// Common vulnerability scanning patterns
 	// TODO: implement a wordlist
@@ -437,16 +427,12 @@ func CheckVulnerabilityScanning(target string) []models.Vulnerability {
 }
 
 // CheckDenialOfService checks for DoS attempts (OAT-015)
-func CheckDenialOfService(target string) []models.Vulnerability {
+func (oat *OAT) CheckDenialOfService(target string) []models.Vulnerability {
 	var vulns []models.Vulnerability
 	fmt.Println("Checking for denial of service attempts...")
 
-	// Create evidence collector
-	evidenceColl, err := evidence.NewEvidenceCollector("evidence")
-	if err != nil {
-		fmt.Printf("Warning: Could not create evidence collector: %v\n", err)
-		return vulns
-	}
+	// Fetch evidence collector
+	evidenceColl := oat.scanner.evidenceColl
 
 	// Test endpoints with large payloads
 	for _, path := range append(authRoutes, contentRoutes...) {
@@ -504,16 +490,12 @@ func CheckDenialOfService(target string) []models.Vulnerability {
 }
 
 // CheckAccountCreation checks for automated account creation (OAT-019)
-func CheckAccountCreation(target string) []models.Vulnerability {
+func (oat *OAT) CheckAccountCreation(target string) []models.Vulnerability {
 	var vulns []models.Vulnerability
 	fmt.Println("Checking for automated account creation attempts...")
 
-	// Create evidence collector
-	evidenceColl, err := evidence.NewEvidenceCollector("evidence")
-	if err != nil {
-		fmt.Printf("Warning: Could not create evidence collector: %v\n", err)
-		return vulns
-	}
+	// Fetch evidence collector
+	evidenceColl := oat.scanner.evidenceColl
 
 	// Test registration endpoints
 	for _, path := range authRoutes {
@@ -572,16 +554,12 @@ func CheckAccountCreation(target string) []models.Vulnerability {
 }
 
 // CheckAdFraud checks for ad fraud attempts (OAT-003)
-func CheckAdFraud(target string) []models.Vulnerability {
+func (oat *OAT) CheckAdFraud(target string) []models.Vulnerability {
 	var vulns []models.Vulnerability
 	fmt.Println("Checking for ad fraud attempts...")
 
-	// Create evidence collector
-	evidenceColl, err := evidence.NewEvidenceCollector("evidence")
-	if err != nil {
-		fmt.Printf("Warning: Could not create evidence collector: %v\n", err)
-		return vulns
-	}
+	// Fetch evidence collector
+	evidenceColl := oat.scanner.evidenceColl
 
 	// Common ad-related endpoints
 	adEndpoints := []string{
@@ -659,16 +637,12 @@ func CheckAdFraud(target string) []models.Vulnerability {
 }
 
 // CheckFingerprinting checks for fingerprinting attempts (OAT-004)
-func CheckFingerprinting(target string) []models.Vulnerability {
+func (oat *OAT) CheckFingerprinting(target string) []models.Vulnerability {
 	var vulns []models.Vulnerability
 	fmt.Println("Checking for fingerprinting attempts...")
 
-	// Create evidence collector
-	evidenceColl, err := evidence.NewEvidenceCollector("evidence")
-	if err != nil {
-		fmt.Printf("Warning: Could not create evidence collector: %v\n", err)
-		return vulns
-	}
+	// Fetch evidence collector
+	evidenceColl := oat.scanner.evidenceColl
 
 	// Common fingerprinting endpoints
 	fingerprintingEndpoints := []string{
@@ -739,16 +713,12 @@ func CheckFingerprinting(target string) []models.Vulnerability {
 }
 
 // CheckScalping checks for scalping attempts (OAT-005)
-func CheckScalping(target string) []models.Vulnerability {
+func (oat *OAT) CheckScalping(target string) []models.Vulnerability {
 	var vulns []models.Vulnerability
 	fmt.Println("Checking for scalping attempts...")
 
-	// Create evidence collector
-	evidenceColl, err := evidence.NewEvidenceCollector("evidence")
-	if err != nil {
-		fmt.Printf("Warning: Could not create evidence collector: %v\n", err)
-		return vulns
-	}
+	// Fetch evidence collector
+	evidenceColl := oat.scanner.evidenceColl
 
 	// Common scalping endpoints
 	// TODO: implement wordlists
@@ -820,16 +790,12 @@ func CheckScalping(target string) []models.Vulnerability {
 }
 
 // CheckExpediting checks for expediting attempts (OAT-006)
-func CheckExpediting(target string) []models.Vulnerability {
+func (oat *OAT) CheckExpediting(target string) []models.Vulnerability {
 	var vulns []models.Vulnerability
 	fmt.Println("Checking for expediting attempts...")
 
-	// Create evidence collector
-	evidenceColl, err := evidence.NewEvidenceCollector("evidence")
-	if err != nil {
-		fmt.Printf("Warning: Could not create evidence collector: %v\n", err)
-		return vulns
-	}
+	// Fetch evidence collector
+	evidenceColl := oat.scanner.evidenceColl
 
 	// Common expediting endpoints
 	expeditingEndpoints := []string{
@@ -907,16 +873,12 @@ func CheckExpediting(target string) []models.Vulnerability {
 }
 
 // CheckCredentialStuffing checks for credential stuffing attempts (OAT-008)
-func CheckCredentialStuffing(target string) []models.Vulnerability {
+func (oat *OAT) CheckCredentialStuffing(target string) []models.Vulnerability {
 	var vulns []models.Vulnerability
 	fmt.Println("Checking for credential stuffing attempts...")
 
-	// Create evidence collector
-	evidenceColl, err := evidence.NewEvidenceCollector("evidence")
-	if err != nil {
-		fmt.Printf("Warning: Could not create evidence collector: %v\n", err)
-		return vulns
-	}
+	// Fetch evidence collector
+	evidenceColl := oat.scanner.evidenceColl
 
 	// Test login endpoints
 	// TODO: implement wordlist for endpoints and user/pass pairs
@@ -1000,16 +962,12 @@ func CheckCredentialStuffing(target string) []models.Vulnerability {
 }
 
 // CheckCAPTCHADefeat checks for CAPTCHA defeat attempts (OAT-009)
-func CheckCAPTCHADefeat(target string) []models.Vulnerability {
+func (oat *OAT) CheckCAPTCHADefeat(target string) []models.Vulnerability {
 	var vulns []models.Vulnerability
 	fmt.Println("Checking for CAPTCHA defeat attempts...")
 
-	// Create evidence collector
-	evidenceColl, err := evidence.NewEvidenceCollector("evidence")
-	if err != nil {
-		fmt.Printf("Warning: Could not create evidence collector: %v\n", err)
-		return vulns
-	}
+	// Fetch evidence collector
+	evidenceColl := oat.scanner.evidenceColl
 
 	// Common CAPTCHA endpoints
 	captchaEndpoints := []string{
@@ -1091,16 +1049,12 @@ func CheckCAPTCHADefeat(target string) []models.Vulnerability {
 }
 
 // CheckCardCracking checks for card cracking attempts (OAT-010)
-func CheckCardCracking(target string) []models.Vulnerability {
+func (oat *OAT) CheckCardCracking(target string) []models.Vulnerability {
 	var vulns []models.Vulnerability
 	fmt.Println("Checking for card cracking attempts...")
 
-	// Create evidence collector
-	evidenceColl, err := evidence.NewEvidenceCollector("evidence")
-	if err != nil {
-		fmt.Printf("Warning: Could not create evidence collector: %v\n", err)
-		return vulns
-	}
+	// Fetch evidence collector
+	evidenceColl := oat.scanner.evidenceColl
 
 	// Test payment endpoints
 	for _, path := range paymentRoutes {
@@ -1178,16 +1132,12 @@ func CheckCardCracking(target string) []models.Vulnerability {
 }
 
 // CheckCashingOut checks for cashing out attempts (OAT-012)
-func CheckCashingOut(target string) []models.Vulnerability {
+func (oat *OAT) CheckCashingOut(target string) []models.Vulnerability {
 	var vulns []models.Vulnerability
 	fmt.Println("Checking for cashing out attempts...")
 
-	// Create evidence collector
-	evidenceColl, err := evidence.NewEvidenceCollector("evidence")
-	if err != nil {
-		fmt.Printf("Warning: Could not create evidence collector: %v\n", err)
-		return vulns
-	}
+	// Fetch evidence collector
+	evidenceColl := oat.scanner.evidenceColl
 
 	// Common cashing out endpoints
 	// TODO: implement wordlist
@@ -1274,16 +1224,12 @@ func CheckCashingOut(target string) []models.Vulnerability {
 }
 
 // CheckSniping checks for sniping attempts (OAT-013)
-func CheckSniping(target string) []models.Vulnerability {
+func (oat *OAT) CheckSniping(target string) []models.Vulnerability {
 	var vulns []models.Vulnerability
 	fmt.Println("Checking for sniping attempts...")
 
-	// Create evidence collector
-	evidenceColl, err := evidence.NewEvidenceCollector("evidence")
-	if err != nil {
-		fmt.Printf("Warning: Could not create evidence collector: %v\n", err)
-		return vulns
-	}
+	// Fetch evidence collector
+	evidenceColl := oat.scanner.evidenceColl
 
 	// Common sniping endpoints
 	snipingEndpoints := []string{
@@ -1364,16 +1310,12 @@ func CheckSniping(target string) []models.Vulnerability {
 }
 
 // CheckSkewing checks for skewing attempts (OAT-016)
-func CheckSkewing(target string) []models.Vulnerability {
+func (oat *OAT) CheckSkewing(target string) []models.Vulnerability {
 	var vulns []models.Vulnerability
 	fmt.Println("Checking for skewing attempts...")
 
-	// Create evidence collector
-	evidenceColl, err := evidence.NewEvidenceCollector("evidence")
-	if err != nil {
-		fmt.Printf("Warning: Could not create evidence collector: %v\n", err)
-		return vulns
-	}
+	// Fetch evidence collector
+	evidenceColl := oat.scanner.evidenceColl
 
 	// Common skewing endpoints
 	skewingEndpoints := []string{
@@ -1451,16 +1393,12 @@ func CheckSkewing(target string) []models.Vulnerability {
 }
 
 // CheckSpamming checks for spamming attempts (OAT-017)
-func CheckSpamming(target string) []models.Vulnerability {
+func (oat *OAT) CheckSpamming(target string) []models.Vulnerability {
 	var vulns []models.Vulnerability
 	fmt.Println("Checking for spamming attempts...")
 
-	// Create evidence collector
-	evidenceColl, err := evidence.NewEvidenceCollector("evidence")
-	if err != nil {
-		fmt.Printf("Warning: Could not create evidence collector: %v\n", err)
-		return vulns
-	}
+	// Fetch evidence collector
+	evidenceColl := oat.scanner.evidenceColl
 
 	// Common spamming endpoints
 	spammingEndpoints := []string{
@@ -1541,16 +1479,12 @@ func CheckSpamming(target string) []models.Vulnerability {
 }
 
 // CheckFootprinting checks for footprinting attempts (OAT-018)
-func CheckFootprinting(target string) []models.Vulnerability {
+func (oat *OAT) CheckFootprinting(target string) []models.Vulnerability {
 	var vulns []models.Vulnerability
 	fmt.Println("Checking for footprinting attempts...")
 
-	// Create evidence collector
-	evidenceColl, err := evidence.NewEvidenceCollector("evidence")
-	if err != nil {
-		fmt.Printf("Warning: Could not create evidence collector: %v\n", err)
-		return vulns
-	}
+	// Fetch evidence collector
+	evidenceColl := oat.scanner.evidenceColl
 
 	// Common footprinting endpoints
 	footprintingEndpoints := []string{
@@ -1627,16 +1561,12 @@ func CheckFootprinting(target string) []models.Vulnerability {
 }
 
 // CheckAccountAggregation checks for account aggregation attempts (OAT-020)
-func CheckAccountAggregation(target string) []models.Vulnerability {
+func (oat *OAT) CheckAccountAggregation(target string) []models.Vulnerability {
 	var vulns []models.Vulnerability
 	fmt.Println("Checking for account aggregation attempts...")
 
-	// Create evidence collector
-	evidenceColl, err := evidence.NewEvidenceCollector("evidence")
-	if err != nil {
-		fmt.Printf("Warning: Could not create evidence collector: %v\n", err)
-		return vulns
-	}
+	// Fetch evidence collector
+	evidenceColl := oat.scanner.evidenceColl
 
 	// Common account aggregation endpoints
 	accountAggregationEndpoints := []string{
@@ -1713,16 +1643,12 @@ func CheckAccountAggregation(target string) []models.Vulnerability {
 }
 
 // CheckDenialOfInventory checks for denial of inventory attempts (OAT-021)
-func CheckDenialOfInventory(target string) []models.Vulnerability {
+func (oat *OAT) CheckDenialOfInventory(target string) []models.Vulnerability {
 	var vulns []models.Vulnerability
 	fmt.Println("Checking for denial of inventory attempts...")
 
-	// Create evidence collector
-	evidenceColl, err := evidence.NewEvidenceCollector("evidence")
-	if err != nil {
-		fmt.Printf("Warning: Could not create evidence collector: %v\n", err)
-		return vulns
-	}
+	// Fetch evidence collector
+	evidenceColl := oat.scanner.evidenceColl
 
 	// Common inventory endpoints
 	inventoryEndpoints := []string{
