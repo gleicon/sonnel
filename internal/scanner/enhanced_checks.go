@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/gleicon/sonnel/internal/evidence"
 	"github.com/gleicon/sonnel/internal/models"
 )
 
@@ -46,10 +45,7 @@ func (es *EnhancedScanner) CheckFuzzing(target string) ([]models.Vulnerability, 
 	}
 
 	var vulnerabilities []models.Vulnerability
-	evidenceColl, err := evidence.NewEvidenceCollector("evidence")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create evidence collector: %v", err)
-	}
+	evidenceColl := es.scanner.evidenceColl
 
 	for _, wordlist := range wordlists {
 		// Run ffuf with the wordlist
@@ -129,10 +125,7 @@ func (es *EnhancedScanner) CheckSubdomainEnumeration(target string) ([]models.Vu
 	}
 
 	var vulnerabilities []models.Vulnerability
-	evidenceColl, err := evidence.NewEvidenceCollector("evidence")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create evidence collector: %v", err)
-	}
+	evidenceColl := es.scanner.evidenceColl
 
 	// Run amass with passive enumeration
 	args := []string{
@@ -198,10 +191,7 @@ func (es *EnhancedScanner) CheckHTTPProbing(target string) ([]models.Vulnerabili
 	}
 
 	var vulnerabilities []models.Vulnerability
-	evidenceColl, err := evidence.NewEvidenceCollector("evidence")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create evidence collector: %v", err)
-	}
+	evidenceColl := es.scanner.evidenceColl
 
 	// Run httpx with various probes
 	args := []string{
@@ -266,10 +256,7 @@ func (es *EnhancedScanner) CheckNucleiScan(target string) ([]models.Vulnerabilit
 	}
 
 	var vulnerabilities []models.Vulnerability
-	evidenceColl, err := evidence.NewEvidenceCollector("evidence")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create evidence collector: %v", err)
-	}
+	evidenceColl := es.scanner.evidenceColl
 
 	// Get user's home directory
 	homeDir, err := os.UserHomeDir()
