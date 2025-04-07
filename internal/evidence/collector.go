@@ -21,6 +21,8 @@ type EvidenceCollector struct {
 }
 
 // NewEvidenceCollector creates a new evidence collector
+// TODO: that should be a top level dependency, created at main time and inject all around,
+// TODO: implement using https://github.com/gleicon/browserhttp
 func NewEvidenceCollector(outputDir string) (*EvidenceCollector, error) {
 	// Create output directory if it doesn't exist
 	if err := os.MkdirAll(outputDir, 0755); err != nil {

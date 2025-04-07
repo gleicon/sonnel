@@ -247,7 +247,7 @@ func (s *Scanner) Scan(targetURL string) ([]models.Vulnerability, error) {
 }
 
 // RunScan performs a comprehensive security scan
-func RunScan(target string) ScanResult {
+func (s *Scanner) RunScan(target string) ScanResult {
 	result := ScanResult{
 		Target:    target,
 		StartTime: time.Now(),

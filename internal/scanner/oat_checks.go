@@ -13,6 +13,7 @@ import (
 // Common route patterns for different types of endpoints
 var (
 	// Auth & Session routes
+	// TODO: use a wordlist for common endpoints
 	authRoutes = []string{
 		"/login", "/signin", "/auth", "/authenticate",
 		"/register", "/signup", "/create-account",
@@ -61,6 +62,7 @@ var (
 		"/api/v1", "/api/v2", "/api/v3",
 		"/v1/api", "/v2/api", "/v3/api",
 		"/api/1.0", "/api/2.0", "/api/3.0",
+		"/v1", "v2",
 	}
 )
 
@@ -113,7 +115,22 @@ func CheckCarding(target string) []models.Vulnerability {
 					Severity:    models.High,
 					URL:         target + path,
 					Evidence:    evidence,
-					Remediation: "Implement rate limiting, CAPTCHA, and card validation checks",
+					Remediation: "Endpoint found but target implemented rate limiting, CAPTCHA. Make sure it has card validation checks",
+				})
+			} else if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				evidence, err := evidenceColl.CollectEvidence(target+path, req, resp)
+				if err != nil {
+					fmt.Printf("Warning: Could not collect evidence: %v\n", err)
+				}
+
+				vulns = append(vulns, models.Vulnerability{
+					Title:       "Potential Carding Attempt Detected",
+					Description: "Rate limiting or suspicious response detected on payment endpoint",
+					Category:    models.CategoryCarding,
+					Severity:    models.High,
+					URL:         target + path,
+					Evidence:    evidence,
+					Remediation: "Target should implement rate limiting, CAPTCHA. Make sure it has card validation checks",
 				})
 			}
 		}
@@ -170,6 +187,21 @@ func CheckTokenCracking(target string) []models.Vulnerability {
 					Severity:    models.High,
 					URL:         target + path,
 					Evidence:    evidence,
+					Remediation: "Target implemented rate limiting, CAPTCHA, or token validation checks",
+				})
+			} else if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				evidence, err := evidenceColl.CollectEvidence(target+path, req, resp)
+				if err != nil {
+					fmt.Printf("Warning: Could not collect evidence: %v\n", err)
+				}
+
+				vulns = append(vulns, models.Vulnerability{
+					Title:       "Potential Token Cracking Attempt Detected",
+					Description: "Rate limiting or suspicious response detected on token endpoint",
+					Category:    models.CategoryTokenCracking,
+					Severity:    models.High,
+					URL:         target + path,
+					Evidence:    evidence,
 					Remediation: "Implement rate limiting, CAPTCHA, and token validation checks",
 				})
 			}
@@ -194,6 +226,7 @@ func CheckCredentialCracking(target string) []models.Vulnerability {
 	// Test login endpoints
 	for _, path := range authRoutes {
 		// Common password list
+		// TODO: implement a wordlist
 		passwords := []string{
 			"password", "123456", "admin", "test",
 			"qwerty", "letmein", "welcome",
@@ -224,6 +257,21 @@ func CheckCredentialCracking(target string) []models.Vulnerability {
 				vulns = append(vulns, models.Vulnerability{
 					Title:       "Potential Credential Cracking Attempt Detected",
 					Description: "Rate limiting or suspicious response detected on login endpoint",
+					Category:    models.CategoryCredentialCracking,
+					Severity:    models.High,
+					URL:         target + path,
+					Evidence:    evidence,
+					Remediation: "Target imeplemented rate limiting or CAPTCHA",
+				})
+			} else if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				evidence, err := evidenceColl.CollectEvidence(target+path, req, resp)
+				if err != nil {
+					fmt.Printf("Warning: Could not collect evidence: %v\n", err)
+				}
+
+				vulns = append(vulns, models.Vulnerability{
+					Title:       "Potential Credential Cracking Attempt Detected",
+					Description: "No rate limit detected, credentials easily cracked",
 					Category:    models.CategoryCredentialCracking,
 					Severity:    models.High,
 					URL:         target + path,
@@ -276,7 +324,7 @@ func CheckScraping(target string) []models.Vulnerability {
 			defer resp.Body.Close()
 
 			// Check for scraping protection
-			if resp.StatusCode == 403 || resp.StatusCode == 429 {
+			if resp.StatusCode == 400 || resp.StatusCode == 401 || resp.StatusCode == 403 || resp.StatusCode == 429 {
 				evidence, err := evidenceColl.CollectEvidence(target+path, req, resp)
 				if err != nil {
 					fmt.Printf("Warning: Could not collect evidence: %v\n", err)
@@ -285,6 +333,21 @@ func CheckScraping(target string) []models.Vulnerability {
 				vulns = append(vulns, models.Vulnerability{
 					Title:       "Potential Scraping Attempt Detected",
 					Description: "Scraping protection detected on content endpoint",
+					Category:    models.CategoryScraping,
+					Severity:    models.Medium,
+					URL:         target + path,
+					Evidence:    evidence,
+					Remediation: "Target implemented rate limiting, CAPTCHA, or user agent validation",
+				})
+			} else if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				evidence, err := evidenceColl.CollectEvidence(target+path, req, resp)
+				if err != nil {
+					fmt.Printf("Warning: Could not collect evidence: %v\n", err)
+				}
+
+				vulns = append(vulns, models.Vulnerability{
+					Title:       "Potential Scraping Attempt Detected",
+					Description: "No scraping protection detected on content endpoint",
 					Category:    models.CategoryScraping,
 					Severity:    models.Medium,
 					URL:         target + path,
@@ -311,6 +374,7 @@ func CheckVulnerabilityScanning(target string) []models.Vulnerability {
 	}
 
 	// Common vulnerability scanning patterns
+	// TODO: implement a wordlist
 	patterns := []string{
 		"../../etc/passwd",
 		"' OR '1'='1",
@@ -348,7 +412,22 @@ func CheckVulnerabilityScanning(target string) []models.Vulnerability {
 					Severity:    models.High,
 					URL:         target + path,
 					Evidence:    evidence,
-					Remediation: "Implement rate limiting, CAPTCHA, and input validation",
+					Remediation: "Target implements some form of rate limiting, CAPTCHA, and input validation",
+				})
+			} else if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				evidence, err := evidenceColl.CollectEvidence(target+path, req, resp)
+				if err != nil {
+					fmt.Printf("Warning: Could not collect evidence: %v\n", err)
+				}
+
+				vulns = append(vulns, models.Vulnerability{
+					Title:       "Potential Vulnerability Scanning Attempt Detected",
+					Description: "No rate limiting or suspicious response protection detected on endpoint",
+					Category:    models.CategoryVulnerabilityScanning,
+					Severity:    models.High,
+					URL:         target + path,
+					Evidence:    evidence,
+					Remediation: "Implement some form of rate limiting, CAPTCHA, and input validation",
 				})
 			}
 		}
@@ -396,7 +475,22 @@ func CheckDenialOfService(target string) []models.Vulnerability {
 
 			vulns = append(vulns, models.Vulnerability{
 				Title:       "Potential Denial of Service Attempt Detected",
-				Description: "Rate limiting or suspicious response detected on endpoint",
+				Description: "Rate limiting or suspicious response protection detected on endpoint",
+				Category:    models.CategoryDenialOfService,
+				Severity:    models.High,
+				URL:         target + path,
+				Evidence:    evidence,
+				Remediation: "Target implements rate limiting, request size limits, and DoS protection",
+			})
+		} else if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			evidence, err := evidenceColl.CollectEvidence(target+path, req, resp)
+			if err != nil {
+				fmt.Printf("Warning: Could not collect evidence: %v\n", err)
+			}
+
+			vulns = append(vulns, models.Vulnerability{
+				Title:       "Potential Denial of Service Attempt Detected",
+				Description: "Rate limiting or suspicious response not detected on endpoint",
 				Category:    models.CategoryDenialOfService,
 				Severity:    models.High,
 				URL:         target + path,
@@ -455,6 +549,21 @@ func CheckAccountCreation(target string) []models.Vulnerability {
 					Evidence:    evidence,
 					Remediation: "Implement rate limiting, CAPTCHA, and account creation validation",
 				})
+			} else if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				evidence, err := evidenceColl.CollectEvidence(target+path, req, resp)
+				if err != nil {
+					fmt.Printf("Warning: Could not collect evidence: %v\n", err)
+				}
+
+				vulns = append(vulns, models.Vulnerability{
+					Title:       "Potential Automated Account Creation Attempt Detected",
+					Description: "Account creation allowed, no rate limiting or suspicious response not detected on endpoint",
+					Category:    models.CategoryAccountCreation,
+					Severity:    models.High,
+					URL:         target + path,
+					Evidence:    evidence,
+					Remediation: "Implement mass account creating protection, rate limiting, request size limits, and DoS protection",
+				})
 			}
 		}
 	}
@@ -512,7 +621,7 @@ func CheckAdFraud(target string) []models.Vulnerability {
 			defer resp.Body.Close()
 
 			// Check for ad fraud protection
-			if resp.StatusCode == 403 || resp.StatusCode == 429 {
+			if resp.StatusCode == 400 || resp.StatusCode == 401 || resp.StatusCode == 403 || resp.StatusCode == 429 {
 				evidence, err := evidenceColl.CollectEvidence(target+path, req, resp)
 				if err != nil {
 					fmt.Printf("Warning: Could not collect evidence: %v\n", err)
@@ -526,6 +635,21 @@ func CheckAdFraud(target string) []models.Vulnerability {
 					URL:         target + path,
 					Evidence:    evidence,
 					Remediation: "Implement ad fraud detection, rate limiting, and user agent validation",
+				})
+			} else if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				evidence, err := evidenceColl.CollectEvidence(target+path, req, resp)
+				if err != nil {
+					fmt.Printf("Warning: Could not collect evidence: %v\n", err)
+				}
+
+				vulns = append(vulns, models.Vulnerability{
+					Title:       "Potential Ad Fraud Attempt Detected",
+					Description: "No Ad fraude protection detected on ad endpoint",
+					Category:    models.CategoryAdFraud,
+					Severity:    models.High,
+					URL:         target + path,
+					Evidence:    evidence,
+					Remediation: "Implement ad fraud detection, rate limiting, request size limits, and user agent validation",
 				})
 			}
 		}
@@ -577,7 +701,7 @@ func CheckFingerprinting(target string) []models.Vulnerability {
 			defer resp.Body.Close()
 
 			// Check for fingerprinting protection
-			if resp.StatusCode == 403 || resp.StatusCode == 429 {
+			if resp.StatusCode == 400 || resp.StatusCode == 401 || resp.StatusCode == 403 || resp.StatusCode == 429 {
 				evidence, err := evidenceColl.CollectEvidence(target+path, req, resp)
 				if err != nil {
 					fmt.Printf("Warning: Could not collect evidence: %v\n", err)
@@ -586,6 +710,21 @@ func CheckFingerprinting(target string) []models.Vulnerability {
 				vulns = append(vulns, models.Vulnerability{
 					Title:       "Potential Fingerprinting Attempt Detected",
 					Description: "Fingerprinting protection detected on endpoint",
+					Category:    models.CategoryFingerprinting,
+					Severity:    models.Medium,
+					URL:         target + path,
+					Evidence:    evidence,
+					Remediation: "Endpoint implements fingerprinting protection, rate limiting, and request validation",
+				})
+			} else if resp.StatusCode >= 200 || resp.StatusCode < 300 {
+				evidence, err := evidenceColl.CollectEvidence(target+path, req, resp)
+				if err != nil {
+					fmt.Printf("Warning: Could not collect evidence: %v\n", err)
+				}
+
+				vulns = append(vulns, models.Vulnerability{
+					Title:       "Potential Fingerprinting Attempt Detected",
+					Description: "No fingerprinting protection detected on endpoint",
 					Category:    models.CategoryFingerprinting,
 					Severity:    models.Medium,
 					URL:         target + path,
@@ -612,6 +751,7 @@ func CheckScalping(target string) []models.Vulnerability {
 	}
 
 	// Common scalping endpoints
+	// TODO: implement wordlists
 	scalpingEndpoints := []string{
 		"/products", "/tickets", "/events",
 		"/inventory", "/stock", "/availability",
@@ -639,7 +779,7 @@ func CheckScalping(target string) []models.Vulnerability {
 			defer resp.Body.Close()
 
 			// Check for scalping protection
-			if resp.StatusCode == 403 || resp.StatusCode == 429 {
+			if resp.StatusCode == 400 || resp.StatusCode == 401 || resp.StatusCode == 403 || resp.StatusCode == 429 {
 				evidence, err := evidenceColl.CollectEvidence(target+path, req, resp)
 				if err != nil {
 					fmt.Printf("Warning: Could not collect evidence: %v\n", err)
@@ -648,6 +788,21 @@ func CheckScalping(target string) []models.Vulnerability {
 				vulns = append(vulns, models.Vulnerability{
 					Title:       "Potential Scalping Attempt Detected",
 					Description: "Scalping protection detected on endpoint",
+					Category:    models.CategoryScalping,
+					Severity:    models.High,
+					URL:         target + path,
+					Evidence:    evidence,
+					Remediation: "Endpoint implements scalping protection, rate limiting, and purchase limits",
+				})
+			} else if resp.StatusCode >= 200 || resp.StatusCode < 300 {
+				evidence, err := evidenceColl.CollectEvidence(target+path, req, resp)
+				if err != nil {
+					fmt.Printf("Warning: Could not collect evidence: %v\n", err)
+				}
+
+				vulns = append(vulns, models.Vulnerability{
+					Title:       "Potential Scalping Attempt Detected",
+					Description: "No scalping protection detected on endpoint",
 					Category:    models.CategoryScalping,
 					Severity:    models.High,
 					URL:         target + path,
@@ -711,7 +866,7 @@ func CheckExpediting(target string) []models.Vulnerability {
 			defer resp.Body.Close()
 
 			// Check for expediting protection
-			if resp.StatusCode == 403 || resp.StatusCode == 429 {
+			if resp.StatusCode == 400 || resp.StatusCode == 401 || resp.StatusCode == 403 || resp.StatusCode == 429 {
 				evidence, err := evidenceColl.CollectEvidence(target+path, req, resp)
 				if err != nil {
 					fmt.Printf("Warning: Could not collect evidence: %v\n", err)
@@ -720,6 +875,21 @@ func CheckExpediting(target string) []models.Vulnerability {
 				vulns = append(vulns, models.Vulnerability{
 					Title:       "Potential Expediting Attempt Detected",
 					Description: "Expediting protection detected on endpoint",
+					Category:    models.CategoryExpediting,
+					Severity:    models.Medium,
+					URL:         target + path,
+					Evidence:    evidence,
+					Remediation: "Endpoint implements expediting protection, rate limiting, and shipping method validation",
+				})
+			} else if resp.StatusCode >= 403 || resp.StatusCode < 300 {
+				evidence, err := evidenceColl.CollectEvidence(target+path, req, resp)
+				if err != nil {
+					fmt.Printf("Warning: Could not collect evidence: %v\n", err)
+				}
+
+				vulns = append(vulns, models.Vulnerability{
+					Title:       "Potential Expediting Attempt Detected",
+					Description: "No Expediting protection detected on endpoint",
 					Category:    models.CategoryExpediting,
 					Severity:    models.Medium,
 					URL:         target + path,
@@ -749,6 +919,7 @@ func CheckCredentialStuffing(target string) []models.Vulnerability {
 	}
 
 	// Test login endpoints
+	// TODO: implement wordlist for endpoints and user/pass pairs
 	for _, path := range authRoutes {
 		// Common credential pairs from known breaches
 		credentials := []struct {
@@ -788,7 +959,7 @@ func CheckCredentialStuffing(target string) []models.Vulnerability {
 			defer resp.Body.Close()
 
 			// Check for credential stuffing protection
-			if resp.StatusCode == 403 || resp.StatusCode == 429 {
+			if resp.StatusCode == 400 || resp.StatusCode == 401 || resp.StatusCode == 403 || resp.StatusCode == 429 {
 				evidence, err := evidenceColl.CollectEvidence(target+path, req, resp)
 				if err != nil {
 					fmt.Printf("Warning: Could not collect evidence: %v\n", err)
@@ -797,6 +968,21 @@ func CheckCredentialStuffing(target string) []models.Vulnerability {
 				vulns = append(vulns, models.Vulnerability{
 					Title:       "Potential Credential Stuffing Attempt Detected",
 					Description: "Credential stuffing protection detected on login endpoint",
+					Category:    models.CategoryCredentialStuffing,
+					Severity:    models.High,
+					URL:         target + path,
+					Evidence:    evidence,
+					Remediation: "Endpoint implements credential stuffing protection, rate limiting, and account lockout",
+				})
+			} else if resp.StatusCode >= 200 || resp.StatusCode < 300 {
+				evidence, err := evidenceColl.CollectEvidence(target+path, req, resp)
+				if err != nil {
+					fmt.Printf("Warning: Could not collect evidence: %v\n", err)
+				}
+
+				vulns = append(vulns, models.Vulnerability{
+					Title:       "Potential Credential Stuffing Attempt Detected",
+					Description: "No Credential stuffing protection detected on login endpoint",
 					Category:    models.CategoryCredentialStuffing,
 					Severity:    models.High,
 					URL:         target + path,
@@ -864,7 +1050,7 @@ func CheckCAPTCHADefeat(target string) []models.Vulnerability {
 			defer resp.Body.Close()
 
 			// Check for CAPTCHA defeat protection
-			if resp.StatusCode == 403 || resp.StatusCode == 429 {
+			if resp.StatusCode == 400 || resp.StatusCode == 401 || resp.StatusCode == 403 || resp.StatusCode == 429 {
 				evidence, err := evidenceColl.CollectEvidence(target+path, req, resp)
 				if err != nil {
 					fmt.Printf("Warning: Could not collect evidence: %v\n", err)
@@ -873,6 +1059,21 @@ func CheckCAPTCHADefeat(target string) []models.Vulnerability {
 				vulns = append(vulns, models.Vulnerability{
 					Title:       "Potential CAPTCHA Defeat Attempt Detected",
 					Description: "CAPTCHA defeat protection detected on endpoint",
+					Category:    models.CategoryCAPTCHADefeat,
+					Severity:    models.High,
+					URL:         target + path,
+					Evidence:    evidence,
+					Remediation: "Endpoint implements CAPTCHA defeat protection, rate limiting, and CAPTCHA validation",
+				})
+			} else if resp.StatusCode >= 200 || resp.StatusCode < 300 {
+				evidence, err := evidenceColl.CollectEvidence(target+path, req, resp)
+				if err != nil {
+					fmt.Printf("Warning: Could not collect evidence: %v\n", err)
+				}
+
+				vulns = append(vulns, models.Vulnerability{
+					Title:       "Potential CAPTCHA Defeat Attempt Detected",
+					Description: "No CAPTCHA defeat protection detected on endpoint",
 					Category:    models.CategoryCAPTCHADefeat,
 					Severity:    models.High,
 					URL:         target + path,
@@ -935,7 +1136,7 @@ func CheckCardCracking(target string) []models.Vulnerability {
 				defer resp.Body.Close()
 
 				// Check for card cracking protection
-				if resp.StatusCode == 403 || resp.StatusCode == 429 {
+				if resp.StatusCode == 400 || resp.StatusCode == 401 || resp.StatusCode == 403 || resp.StatusCode == 429 {
 					evidence, err := evidenceColl.CollectEvidence(target+path, req, resp)
 					if err != nil {
 						fmt.Printf("Warning: Could not collect evidence: %v\n", err)
@@ -944,6 +1145,21 @@ func CheckCardCracking(target string) []models.Vulnerability {
 					vulns = append(vulns, models.Vulnerability{
 						Title:       "Potential Card Cracking Attempt Detected",
 						Description: "Card cracking protection detected on payment endpoint",
+						Category:    models.CategoryCardCracking,
+						Severity:    models.High,
+						URL:         target + path,
+						Evidence:    evidence,
+						Remediation: "Endpoint implements card cracking protection, rate limiting, and card validation checks",
+					})
+				} else if resp.StatusCode >= 200 || resp.StatusCode < 300 {
+					evidence, err := evidenceColl.CollectEvidence(target+path, req, resp)
+					if err != nil {
+						fmt.Printf("Warning: Could not collect evidence: %v\n", err)
+					}
+
+					vulns = append(vulns, models.Vulnerability{
+						Title:       "Potential Card Cracking Attempt Detected",
+						Description: "No card cracking protection detected on payment endpoint",
 						Category:    models.CategoryCardCracking,
 						Severity:    models.High,
 						URL:         target + path,
@@ -974,6 +1190,7 @@ func CheckCashingOut(target string) []models.Vulnerability {
 	}
 
 	// Common cashing out endpoints
+	// TODO: implement wordlist
 	cashingOutEndpoints := []string{
 		"/withdraw", "/cashout", "/payout",
 		"/transfer", "/send", "/withdrawal",
@@ -990,6 +1207,7 @@ func CheckCashingOut(target string) []models.Vulnerability {
 		currencies := []string{
 			"USD", "EUR", "GBP",
 			"JPY", "AUD", "CAD",
+			"BRL", "BTC",
 		}
 
 		for _, amount := range amounts {
@@ -1014,7 +1232,7 @@ func CheckCashingOut(target string) []models.Vulnerability {
 				defer resp.Body.Close()
 
 				// Check for cashing out protection
-				if resp.StatusCode == 403 || resp.StatusCode == 429 {
+				if resp.StatusCode == 400 || resp.StatusCode == 401 || resp.StatusCode == 403 || resp.StatusCode == 429 {
 					evidence, err := evidenceColl.CollectEvidence(target+path, req, resp)
 					if err != nil {
 						fmt.Printf("Warning: Could not collect evidence: %v\n", err)
@@ -1023,6 +1241,21 @@ func CheckCashingOut(target string) []models.Vulnerability {
 					vulns = append(vulns, models.Vulnerability{
 						Title:       "Potential Cashing Out Attempt Detected",
 						Description: "Cashing out protection detected on endpoint",
+						Category:    models.CategoryCashingOut,
+						Severity:    models.High,
+						URL:         target + path,
+						Evidence:    evidence,
+						Remediation: "Endpoint implements cashing out protection, rate limiting, and amount validation",
+					})
+				} else if resp.StatusCode >= 200 || resp.StatusCode < 300 {
+					evidence, err := evidenceColl.CollectEvidence(target+path, req, resp)
+					if err != nil {
+						fmt.Printf("Warning: Could not collect evidence: %v\n", err)
+					}
+
+					vulns = append(vulns, models.Vulnerability{
+						Title:       "Potential Cashing Out Attempt Detected",
+						Description: "No cashing out protection detected on endpoint",
 						Category:    models.CategoryCashingOut,
 						Severity:    models.High,
 						URL:         target + path,
@@ -1089,7 +1322,7 @@ func CheckSniping(target string) []models.Vulnerability {
 				defer resp.Body.Close()
 
 				// Check for sniping protection
-				if resp.StatusCode == 403 || resp.StatusCode == 429 {
+				if resp.StatusCode == 400 || resp.StatusCode == 401 || resp.StatusCode == 403 || resp.StatusCode == 429 {
 					evidence, err := evidenceColl.CollectEvidence(target+path, req, resp)
 					if err != nil {
 						fmt.Printf("Warning: Could not collect evidence: %v\n", err)
@@ -1098,6 +1331,21 @@ func CheckSniping(target string) []models.Vulnerability {
 					vulns = append(vulns, models.Vulnerability{
 						Title:       "Potential Sniping Attempt Detected",
 						Description: "Sniping protection detected on endpoint",
+						Category:    models.CategorySniping,
+						Severity:    models.High,
+						URL:         target + path,
+						Evidence:    evidence,
+						Remediation: "Endpoint implements sniping protection, rate limiting, and bid validation",
+					})
+				} else if resp.StatusCode >= 200 || resp.StatusCode < 300 {
+					evidence, err := evidenceColl.CollectEvidence(target+path, req, resp)
+					if err != nil {
+						fmt.Printf("Warning: Could not collect evidence: %v\n", err)
+					}
+
+					vulns = append(vulns, models.Vulnerability{
+						Title:       "Potential Sniping Attempt Detected",
+						Description: "No sniping protection detected on endpoint",
 						Category:    models.CategorySniping,
 						Severity:    models.High,
 						URL:         target + path,
@@ -1162,7 +1410,7 @@ func CheckSkewing(target string) []models.Vulnerability {
 			defer resp.Body.Close()
 
 			// Check for skewing protection
-			if resp.StatusCode == 403 || resp.StatusCode == 429 {
+			if resp.StatusCode == 400 || resp.StatusCode == 401 || resp.StatusCode == 403 || resp.StatusCode == 429 {
 				evidence, err := evidenceColl.CollectEvidence(target+path, req, resp)
 				if err != nil {
 					fmt.Printf("Warning: Could not collect evidence: %v\n", err)
@@ -1171,6 +1419,21 @@ func CheckSkewing(target string) []models.Vulnerability {
 				vulns = append(vulns, models.Vulnerability{
 					Title:       "Potential Skewing Attempt Detected",
 					Description: "Skewing protection detected on endpoint",
+					Category:    models.CategorySkewing,
+					Severity:    models.Medium,
+					URL:         target + path,
+					Evidence:    evidence,
+					Remediation: "Endpoint implements skewing protection, rate limiting, and rating validation",
+				})
+			} else if resp.StatusCode >= 200 || resp.StatusCode < 300 {
+				evidence, err := evidenceColl.CollectEvidence(target+path, req, resp)
+				if err != nil {
+					fmt.Printf("Warning: Could not collect evidence: %v\n", err)
+				}
+
+				vulns = append(vulns, models.Vulnerability{
+					Title:       "Potential Skewing Attempt Detected",
+					Description: "No skewing protection detected on endpoint",
 					Category:    models.CategorySkewing,
 					Severity:    models.Medium,
 					URL:         target + path,
@@ -1237,7 +1500,7 @@ func CheckSpamming(target string) []models.Vulnerability {
 			defer resp.Body.Close()
 
 			// Check for spamming protection
-			if resp.StatusCode == 403 || resp.StatusCode == 429 {
+			if resp.StatusCode == 400 || resp.StatusCode == 401 || resp.StatusCode == 403 || resp.StatusCode == 429 {
 				evidence, err := evidenceColl.CollectEvidence(target+path, req, resp)
 				if err != nil {
 					fmt.Printf("Warning: Could not collect evidence: %v\n", err)
@@ -1246,6 +1509,21 @@ func CheckSpamming(target string) []models.Vulnerability {
 				vulns = append(vulns, models.Vulnerability{
 					Title:       "Potential Spamming Attempt Detected",
 					Description: "Spamming protection detected on endpoint",
+					Category:    models.CategorySpamming,
+					Severity:    models.Medium,
+					URL:         target + path,
+					Evidence:    evidence,
+					Remediation: "Endpoint implements spamming protection, rate limiting, and content validation",
+				})
+			} else if resp.StatusCode >= 200 || resp.StatusCode < 300 {
+				evidence, err := evidenceColl.CollectEvidence(target+path, req, resp)
+				if err != nil {
+					fmt.Printf("Warning: Could not collect evidence: %v\n", err)
+				}
+
+				vulns = append(vulns, models.Vulnerability{
+					Title:       "Potential Spamming Attempt Detected",
+					Description: "No spamming protection detected on endpoint",
 					Category:    models.CategorySpamming,
 					Severity:    models.Medium,
 					URL:         target + path,
@@ -1308,7 +1586,7 @@ func CheckFootprinting(target string) []models.Vulnerability {
 			defer resp.Body.Close()
 
 			// Check for footprinting protection
-			if resp.StatusCode == 403 || resp.StatusCode == 429 {
+			if resp.StatusCode == 400 || resp.StatusCode == 401 || resp.StatusCode == 403 || resp.StatusCode == 429 {
 				evidence, err := evidenceColl.CollectEvidence(target+path, req, resp)
 				if err != nil {
 					fmt.Printf("Warning: Could not collect evidence: %v\n", err)
@@ -1317,6 +1595,21 @@ func CheckFootprinting(target string) []models.Vulnerability {
 				vulns = append(vulns, models.Vulnerability{
 					Title:       "Potential Footprinting Attempt Detected",
 					Description: "Footprinting protection detected on endpoint",
+					Category:    models.CategoryFootprinting,
+					Severity:    models.Medium,
+					URL:         target + path,
+					Evidence:    evidence,
+					Remediation: "Endpoint implements footprinting protection, rate limiting, and request validation",
+				})
+			} else if resp.StatusCode >= 200 || resp.StatusCode < 300 {
+				evidence, err := evidenceColl.CollectEvidence(target+path, req, resp)
+				if err != nil {
+					fmt.Printf("Warning: Could not collect evidence: %v\n", err)
+				}
+
+				vulns = append(vulns, models.Vulnerability{
+					Title:       "Potential Footprinting Attempt Detected",
+					Description: "No footprinting protection detected on endpoint",
 					Category:    models.CategoryFootprinting,
 					Severity:    models.Medium,
 					URL:         target + path,
@@ -1379,7 +1672,7 @@ func CheckAccountAggregation(target string) []models.Vulnerability {
 			defer resp.Body.Close()
 
 			// Check for account aggregation protection
-			if resp.StatusCode == 403 || resp.StatusCode == 429 {
+			if resp.StatusCode == 400 || resp.StatusCode == 401 || resp.StatusCode == 403 || resp.StatusCode == 429 {
 				evidence, err := evidenceColl.CollectEvidence(target+path, req, resp)
 				if err != nil {
 					fmt.Printf("Warning: Could not collect evidence: %v\n", err)
@@ -1388,6 +1681,21 @@ func CheckAccountAggregation(target string) []models.Vulnerability {
 				vulns = append(vulns, models.Vulnerability{
 					Title:       "Potential Account Aggregation Attempt Detected",
 					Description: "Account aggregation protection detected on endpoint",
+					Category:    models.CategoryAccountAggregation,
+					Severity:    models.High,
+					URL:         target + path,
+					Evidence:    evidence,
+					Remediation: "Endpoint implements account aggregation protection, rate limiting, and access control",
+				})
+			} else if resp.StatusCode >= 200 || resp.StatusCode < 300 {
+				evidence, err := evidenceColl.CollectEvidence(target+path, req, resp)
+				if err != nil {
+					fmt.Printf("Warning: Could not collect evidence: %v\n", err)
+				}
+
+				vulns = append(vulns, models.Vulnerability{
+					Title:       "Potential Account Aggregation Attempt Detected",
+					Description: "No account aggregation protection detected on endpoint",
 					Category:    models.CategoryAccountAggregation,
 					Severity:    models.High,
 					URL:         target + path,
@@ -1451,7 +1759,22 @@ func CheckDenialOfInventory(target string) []models.Vulnerability {
 			defer resp.Body.Close()
 
 			// Check for denial of inventory protection
-			if resp.StatusCode == 403 || resp.StatusCode == 429 {
+			if resp.StatusCode == 400 || resp.StatusCode == 401 || resp.StatusCode == 403 || resp.StatusCode == 429 {
+				evidence, err := evidenceColl.CollectEvidence(target+path, req, resp)
+				if err != nil {
+					fmt.Printf("Warning: Could not collect evidence: %v\n", err)
+				}
+
+				vulns = append(vulns, models.Vulnerability{
+					Title:       "Potential Denial of Inventory Attempt Detected",
+					Description: "Denial of inventory protection detected on endpoint",
+					Category:    models.CategoryDenialOfInventory,
+					Severity:    models.High,
+					URL:         target + path,
+					Evidence:    evidence,
+					Remediation: "Endpoint implements denial of inventory protection, rate limiting, and quantity validation",
+				})
+			} else if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 				evidence, err := evidenceColl.CollectEvidence(target+path, req, resp)
 				if err != nil {
 					fmt.Printf("Warning: Could not collect evidence: %v\n", err)

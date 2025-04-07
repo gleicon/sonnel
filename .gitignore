@@ -1,0 +1,10 @@
+*test_evidence*
+*.db
+screenshots/*
+screenshots
+.vscode
+.cursor
+*sonnel_output*
+scan_output/*
+verbose/*
+evidence/*

@@ -35,10 +35,14 @@ var scanCmd = &cobra.Command{
 		s.SetVerbose(verbose)
 
 		// Run scan
-		vulns, err := s.Scan(targetURL)
-		if err != nil {
-			return fmt.Errorf("scan failed: %v", err)
-		}
+		//vulns, err := s.Scan(targetURL)
+
+		scanResult := s.RunScan(targetURL)
+		vulns := scanResult.Vulnerabilities
+		//s.Scan(targetURL)
+		// if err != nil {
+		// 	return fmt.Errorf("scan failed: %v", err)
+		// }
 
 		// Print final summary
 		fmt.Println("\n=== Scan Summary ===")

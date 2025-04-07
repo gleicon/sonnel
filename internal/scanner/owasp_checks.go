@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/gleicon/sonnel/internal/evidence"
 	"github.com/gleicon/sonnel/internal/models"
@@ -111,6 +112,34 @@ func CheckBrokenAccessControl(scanner *Scanner, targetURL string) ([]models.Vuln
 		fmt.Printf("Warning: Error checking IDOR: %v\n", err)
 	}
 	vulnerabilities = append(vulnerabilities, idorVulns...)
+
+	// Check for missing authorization headers
+	authHeaderVulns, err := checkMissingAuthHeaders(scanner, targetURL)
+	if err != nil {
+		fmt.Printf("Warning: Error checking authorization headers: %v\n", err)
+	}
+	vulnerabilities = append(vulnerabilities, authHeaderVulns...)
+
+	// Check for CORS misconfigurations
+	corsVulns, err := checkCORS(scanner, targetURL)
+	if err != nil {
+		fmt.Printf("Warning: Error checking CORS: %v\n", err)
+	}
+	vulnerabilities = append(vulnerabilities, corsVulns...)
+
+	// Check for JWT token validation
+	jwtVulns, err := checkJWTValidation(scanner, targetURL)
+	if err != nil {
+		fmt.Printf("Warning: Error checking JWT validation: %v\n", err)
+	}
+	vulnerabilities = append(vulnerabilities, jwtVulns...)
+
+	// Check for role-based access control bypass
+	rbacVulns, err := checkRBACBypass(scanner, targetURL)
+	if err != nil {
+		fmt.Printf("Warning: Error checking RBAC bypass: %v\n", err)
+	}
+	vulnerabilities = append(vulnerabilities, rbacVulns...)
 
 	return vulnerabilities, nil
 }
@@ -561,10 +590,73 @@ func checkBusinessLogic(scanner *Scanner, targetURL string) ([]models.Vulnerabil
 func checkDirectoryTraversal(scanner *Scanner, targetURL string) ([]models.Vulnerability, error) {
 	var vulnerabilities []models.Vulnerability
 
+	// Common sensitive files to test
 	paths := []string{
+		// Basic traversal
 		"/../../../../etc/passwd",
 		"/..%2F..%2F..%2F..%2Fetc/passwd",
 		"/%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2fetc/passwd",
+		"/....//....//....//....//etc/passwd",
+		"/..%252F..%252F..%252F..%252Fetc/passwd",
+
+		// Windows paths
+		"/..\\..\\..\\..\\windows\\system32\\drivers\\etc\\hosts",
+		"/..%5C..%5C..%5C..%5Cwindows%5Csystem32%5Cdrivers%5Cetc%5Chosts",
+
+		// Common sensitive files
+		"/../../../../etc/shadow",
+		"/../../../../etc/hosts",
+		"/../../../../etc/group",
+		"/../../../../etc/hostname",
+		"/../../../../etc/resolv.conf",
+
+		// Configuration files
+		"/../../../../etc/nginx/nginx.conf",
+		"/../../../../etc/apache2/apache2.conf",
+		"/../../../../etc/httpd/conf/httpd.conf",
+
+		// Log files
+		"/../../../../var/log/auth.log",
+		"/../../../../var/log/syslog",
+		"/../../../../var/log/nginx/access.log",
+
+		// Web server files
+		"/../../../../var/www/html/index.php",
+		"/../../../../var/www/html/config.php",
+		"/../../../../var/www/html/.env",
+
+		// SSH files
+		"/../../../../.ssh/id_rsa",
+		"/../../../../.ssh/authorized_keys",
+		"/../../../../.ssh/config",
+
+		// Git files
+		"/../../../../.git/config",
+		"/../../../../.git/HEAD",
+		"/../../../../.git/index",
+
+		// Environment files
+		"/../../../../.env",
+		"/../../../../.env.local",
+		"/../../../../.env.production",
+
+		// Database files
+		"/../../../../var/lib/mysql/mysql/user.MYD",
+		"/../../../../var/lib/postgresql/data/pg_hba.conf",
+	}
+
+	// Common sensitive file indicators
+	indicators := []string{
+		"root:",        // /etc/passwd
+		"root:$",       // /etc/shadow
+		"127.0.0.1",    // /etc/hosts
+		"root:x:",      // /etc/group
+		"server {",     // nginx config
+		"<VirtualHost", // apache config
+		"BEGIN RSA",    // SSH keys
+		"ref: refs/",   // git files
+		"DB_USERNAME=", // .env files
+		"<?php",        // PHP files
 	}
 
 	for _, path := range paths {
@@ -573,32 +665,45 @@ func checkDirectoryTraversal(scanner *Scanner, targetURL string) ([]models.Vulne
 			continue
 		}
 
+		// Set timeout
+		scanner.client.Timeout = 5 * time.Second
+
 		resp, err := scanner.client.Do(req)
 		if err != nil {
 			continue
 		}
 		defer resp.Body.Close()
 
+		// Only process successful responses
+		if resp.StatusCode != http.StatusOK {
+			continue
+		}
+
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
 			continue
 		}
 
-		if strings.Contains(string(body), "root:") {
-			evidence, err := scanner.evidenceColl.CollectEvidence(targetURL+path, req, resp)
-			if err != nil {
-				fmt.Printf("Warning: Could not collect evidence: %v\n", err)
-			}
+		// Check for any sensitive file indicators
+		for _, indicator := range indicators {
+			if strings.Contains(string(body), indicator) {
+				evidence, err := scanner.evidenceColl.CollectEvidence(targetURL+path, req, resp)
+				if err != nil {
+					fmt.Printf("Warning: Could not collect evidence: %v\n", err)
+					continue
+				}
 
-			vulnerabilities = append(vulnerabilities, models.Vulnerability{
-				Title:       "Directory Traversal",
-				Description: "The application is vulnerable to directory traversal attacks.",
-				Category:    models.CategoryBrokenAccessControl,
-				Severity:    models.High,
-				URL:         targetURL + path,
-				Evidence:    evidence,
-				Remediation: "Implement proper input validation.",
-			})
+				vulnerabilities = append(vulnerabilities, models.Vulnerability{
+					Title:       "Directory Traversal",
+					Description: fmt.Sprintf("The application is vulnerable to directory traversal attacks. Sensitive file '%s' was accessed.", path),
+					Category:    models.CategoryBrokenAccessControl,
+					Severity:    models.High,
+					URL:         targetURL + path,
+					Evidence:    evidence,
+					Remediation: "Implement proper input validation and path normalization. Use a secure file access API that prevents directory traversal.",
+				})
+				break
+			}
 		}
 	}
 
@@ -608,9 +713,82 @@ func checkDirectoryTraversal(scanner *Scanner, targetURL string) ([]models.Vulne
 func checkIDOR(scanner *Scanner, targetURL string) ([]models.Vulnerability, error) {
 	var vulnerabilities []models.Vulnerability
 
-	for i := 1; i <= 5; i++ {
-		path := fmt.Sprintf("/api/users/%d", i)
-		req, err := http.NewRequest("GET", targetURL+path, nil)
+	// Common IDOR patterns to test
+	patterns := []string{
+		"/api/users/%d",         // User IDs
+		"/api/orders/%d",        // Order IDs
+		"/api/products/%d",      // Product IDs
+		"/api/documents/%d",     // Document IDs
+		"/api/invoices/%d",      // Invoice IDs
+		"/api/tickets/%d",       // Support tickets
+		"/api/payments/%d",      // Payment records
+		"/api/transactions/%d",  // Transaction records
+		"/api/accounts/%d",      // Account records
+		"/api/profiles/%d",      // Profile records
+		"/api/settings/%d",      // Settings records
+		"/api/notifications/%d", // Notification records
+		"/api/messages/%d",      // Message records
+		"/api/comments/%d",      // Comment records
+		"/api/reviews/%d",       // Review records
+		"/api/ratings/%d",       // Rating records
+		"/api/bookmarks/%d",     // Bookmark records
+		"/api/favorites/%d",     // Favorite records
+		"/api/likes/%d",         // Like records
+		"/api/shares/%d",        // Share records
+	}
+
+	// Test each pattern with sequential IDs
+	for _, pattern := range patterns {
+		for i := 1; i <= 5; i++ {
+			path := fmt.Sprintf(pattern, i)
+			req, err := http.NewRequest("GET", targetURL+path, nil)
+			if err != nil {
+				continue
+			}
+
+			resp, err := scanner.client.Do(req)
+			if err != nil {
+				continue
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode == http.StatusOK {
+				evidence, err := scanner.evidenceColl.CollectEvidence(targetURL+path, req, resp)
+				if err != nil {
+					fmt.Printf("Warning: Could not collect evidence: %v\n", err)
+					continue
+				}
+
+				vulnerabilities = append(vulnerabilities, models.Vulnerability{
+					Title:       "Insecure Direct Object Reference (IDOR)",
+					Description: fmt.Sprintf("The application allows direct access to objects by their ID at path '%s'.", path),
+					Category:    models.CategoryBrokenAccessControl,
+					Severity:    models.Medium,
+					URL:         targetURL + path,
+					Evidence:    evidence,
+					Remediation: "Implement proper access control checks. Use indirect object references or access control lists.",
+				})
+			}
+		}
+	}
+
+	return vulnerabilities, nil
+}
+
+func checkMissingAuthHeaders(scanner *Scanner, targetURL string) ([]models.Vulnerability, error) {
+	var vulnerabilities []models.Vulnerability
+
+	// Test endpoints that should require authentication
+	endpoints := []string{
+		"/api/users",
+		"/api/orders",
+		"/api/settings",
+		"/api/admin",
+		"/api/dashboard",
+	}
+
+	for _, endpoint := range endpoints {
+		req, err := http.NewRequest("GET", targetURL+endpoint, nil)
 		if err != nil {
 			continue
 		}
@@ -621,20 +799,208 @@ func checkIDOR(scanner *Scanner, targetURL string) ([]models.Vulnerability, erro
 		}
 		defer resp.Body.Close()
 
+		// Check if endpoint is accessible without authentication
 		if resp.StatusCode == http.StatusOK {
-			evidence, err := scanner.evidenceColl.CollectEvidence(targetURL+path, req, resp)
+			evidence, err := scanner.evidenceColl.CollectEvidence(targetURL+endpoint, req, resp)
 			if err != nil {
 				fmt.Printf("Warning: Could not collect evidence: %v\n", err)
+				continue
 			}
 
 			vulnerabilities = append(vulnerabilities, models.Vulnerability{
-				Title:       "Insecure Direct Object Reference (IDOR)",
-				Description: "The application allows direct access to objects by their ID.",
+				Title:       "Missing Authorization",
+				Description: fmt.Sprintf("The endpoint '%s' is accessible without proper authorization.", endpoint),
+				Category:    models.CategoryBrokenAccessControl,
+				Severity:    models.High,
+				URL:         targetURL + endpoint,
+				Evidence:    evidence,
+				Remediation: "Implement proper authorization checks. Require valid authentication tokens for all sensitive endpoints.",
+			})
+		}
+	}
+
+	return vulnerabilities, nil
+}
+
+func checkCORS(scanner *Scanner, targetURL string) ([]models.Vulnerability, error) {
+	var vulnerabilities []models.Vulnerability
+
+	// Test CORS configuration
+	req, err := http.NewRequest("OPTIONS", targetURL, nil)
+	if err != nil {
+		return vulnerabilities, nil
+	}
+
+	// Test with different origins
+	origins := []string{
+		"https://evil.com",
+		"http://localhost",
+		"http://127.0.0.1",
+		"null",
+		"*",
+	}
+
+	for _, origin := range origins {
+		req.Header.Set("Origin", origin)
+		req.Header.Set("Access-Control-Request-Method", "GET")
+		req.Header.Set("Access-Control-Request-Headers", "Content-Type")
+
+		resp, err := scanner.client.Do(req)
+		if err != nil {
+			continue
+		}
+		defer resp.Body.Close()
+
+		// Check for overly permissive CORS
+		allowOrigin := resp.Header.Get("Access-Control-Allow-Origin")
+		if allowOrigin == "*" || allowOrigin == origin {
+			evidence, err := scanner.evidenceColl.CollectEvidence(targetURL, req, resp)
+			if err != nil {
+				fmt.Printf("Warning: Could not collect evidence: %v\n", err)
+				continue
+			}
+
+			vulnerabilities = append(vulnerabilities, models.Vulnerability{
+				Title:       "CORS Misconfiguration",
+				Description: fmt.Sprintf("The application has an overly permissive CORS configuration, allowing requests from origin '%s'.", origin),
 				Category:    models.CategoryBrokenAccessControl,
 				Severity:    models.Medium,
-				URL:         targetURL + path,
+				URL:         targetURL,
 				Evidence:    evidence,
-				Remediation: "Implement proper access control checks.",
+				Remediation: "Implement proper CORS configuration. Only allow specific trusted origins and methods.",
+			})
+		}
+	}
+
+	return vulnerabilities, nil
+}
+
+func checkJWTValidation(scanner *Scanner, targetURL string) ([]models.Vulnerability, error) {
+	var vulnerabilities []models.Vulnerability
+
+	// Test JWT validation
+	// First, try to get a valid token from login
+	loginReq, err := http.NewRequest("POST", targetURL+"/api/login", strings.NewReader(`{"username":"test","password":"test"}`))
+	if err != nil {
+		return vulnerabilities, nil
+	}
+	loginReq.Header.Set("Content-Type", "application/json")
+
+	loginResp, err := scanner.client.Do(loginReq)
+	if err != nil {
+		return vulnerabilities, nil
+	}
+	defer loginResp.Body.Close()
+
+	// Get token from response
+	token := loginResp.Header.Get("Authorization")
+	if token == "" {
+		return vulnerabilities, nil
+	}
+
+	// Test JWT validation with modified tokens
+	tokens := []string{
+		token,                                    // Original token
+		strings.Replace(token, "Bearer ", "", 1), // Without Bearer prefix
+		"eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.",                                             // None algorithm
+		"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c", // HS256 with weak key
+	}
+
+	for _, testToken := range tokens {
+		req, err := http.NewRequest("GET", targetURL+"/api/protected", nil)
+		if err != nil {
+			continue
+		}
+		req.Header.Set("Authorization", "Bearer "+testToken)
+
+		resp, err := scanner.client.Do(req)
+		if err != nil {
+			continue
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode == http.StatusOK {
+			evidence, err := scanner.evidenceColl.CollectEvidence(targetURL+"/api/protected", req, resp)
+			if err != nil {
+				fmt.Printf("Warning: Could not collect evidence: %v\n", err)
+				continue
+			}
+
+			vulnerabilities = append(vulnerabilities, models.Vulnerability{
+				Title:       "JWT Validation Bypass",
+				Description: "The application accepts invalid or weak JWT tokens.",
+				Category:    models.CategoryBrokenAccessControl,
+				Severity:    models.High,
+				URL:         targetURL + "/api/protected",
+				Evidence:    evidence,
+				Remediation: "Implement proper JWT validation. Reject tokens with 'none' algorithm and weak signatures.",
+			})
+			break
+		}
+	}
+
+	return vulnerabilities, nil
+}
+
+func checkRBACBypass(scanner *Scanner, targetURL string) ([]models.Vulnerability, error) {
+	var vulnerabilities []models.Vulnerability
+
+	// Test RBAC bypass
+	// First, login as a regular user
+	loginReq, err := http.NewRequest("POST", targetURL+"/api/login", strings.NewReader(`{"username":"user","password":"user"}`))
+	if err != nil {
+		return vulnerabilities, nil
+	}
+	loginReq.Header.Set("Content-Type", "application/json")
+
+	loginResp, err := scanner.client.Do(loginReq)
+	if err != nil {
+		return vulnerabilities, nil
+	}
+	defer loginResp.Body.Close()
+
+	// Get token from response
+	token := loginResp.Header.Get("Authorization")
+	if token == "" {
+		return vulnerabilities, nil
+	}
+
+	// Test admin endpoints with regular user token
+	adminEndpoints := []string{
+		"/api/admin/users",
+		"/api/admin/settings",
+		"/api/admin/logs",
+		"/api/admin/config",
+	}
+
+	for _, endpoint := range adminEndpoints {
+		req, err := http.NewRequest("GET", targetURL+endpoint, nil)
+		if err != nil {
+			continue
+		}
+		req.Header.Set("Authorization", token)
+
+		resp, err := scanner.client.Do(req)
+		if err != nil {
+			continue
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode == http.StatusOK {
+			evidence, err := scanner.evidenceColl.CollectEvidence(targetURL+endpoint, req, resp)
+			if err != nil {
+				fmt.Printf("Warning: Could not collect evidence: %v\n", err)
+				continue
+			}
+
+			vulnerabilities = append(vulnerabilities, models.Vulnerability{
+				Title:       "RBAC Bypass",
+				Description: fmt.Sprintf("The application allows regular users to access admin endpoint '%s'.", endpoint),
+				Category:    models.CategoryBrokenAccessControl,
+				Severity:    models.High,
+				URL:         targetURL + endpoint,
+				Evidence:    evidence,
+				Remediation: "Implement proper role-based access control. Verify user roles before granting access to sensitive endpoints.",
 			})
 		}
 	}
