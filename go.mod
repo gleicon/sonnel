@@ -6,7 +6,7 @@ toolchain go1.24.2
 
 require (
 	github.com/chromedp/chromedp v0.13.6
-	github.com/gleicon/browserhttp v0.1.0
+	github.com/gleicon/browserhttp v0.1.1
 	github.com/jung-kurt/gofpdf v1.16.2
 	github.com/spf13/cobra v1.9.1
 )

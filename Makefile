@@ -1,12 +1,16 @@
-.PHONY: build test clean scan-juiceshop scan-juiceshop-report scan-report help init
+.PHONY: build deps test clean scan-juiceshop scan-juiceshop-report scan-report help init
 
 # Initialize directories
 init:
 	mkdir -p sonnel_output/evidence
 	mkdir -p sonnel_output/reports
 
+deps:
+	go mod download
+	go mod tidy
+
 # Build commands
-build: init
+build: init deps 
 	go build -o sonnel ./cmd/sonnel
 
 test:
@@ -45,6 +49,7 @@ scan: build
 help:
 	@echo "Available commands:"
 	@echo "  make init                  - Initialize required directories"
+	@echo "  make deps                  - Install dependencies"
 	@echo "  make build                 - Build the sonnel binary"
 	@echo "  make test                  - Run all tests"
 	@echo "  make clean                 - Clean build artifacts and reports"
